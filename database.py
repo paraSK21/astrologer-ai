@@ -1,0 +1,76 @@
+import sqlite3
+import json
+from datetime import datetime
+
+class UserDatabase:
+    def __init__(self, db_name):
+        self.db_name = db_name
+        self.init_db()
+    
+    def init_db(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                birth_date TEXT NOT NULL,
+                birth_time TEXT NOT NULL,
+                birth_location TEXT NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                timezone TEXT NOT NULL,
+                natal_chart TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS conversations (
+                conv_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                query TEXT NOT NULL,
+                response TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            )
+        ''')
+        conn.commit()
+        conn.close()
+    
+    def add_user(self, name, birth_date, birth_time, birth_location, latitude, longitude, timezone, natal_chart):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO users (name, birth_date, birth_time, birth_location, latitude, longitude, timezone, natal_chart, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (name, birth_date, birth_time, birth_location, latitude, longitude, timezone, json.dumps(natal_chart), datetime.now().isoformat()))
+        user_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return user_id
+    
+    def get_user(self, user_id):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+        user = cursor.fetchone()
+        conn.close()
+        return user
+    
+    def list_users(self):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('SELECT user_id, name, birth_date FROM users')
+        users = cursor.fetchall()
+        conn.close()
+        return users
+    
+    def add_conversation(self, user_id, query, response):
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO conversations (user_id, query, response, timestamp)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, query, response, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
