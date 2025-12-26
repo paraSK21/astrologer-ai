@@ -14,9 +14,9 @@ Separate each message with "|||"
 
 Example: "Aap kya jaanna chahte hai?|||Batao, kya problem hai?"
 
-🚨 CRITICAL RULES 🚨
+  CRITICAL RULES
 1. When user says "dhanyawad" (thank you) - ONLY say "Dhanyavaad, aapka abhar" or "Khush raho" - NOTHING ELSE! NO predictions! NO house analysis!
-2. When user asks for "solution" or "upay" - Give SPECIFIC remedies (mantras, days, actions) based on the problem context
+2. When user asks for "solution" or "upay" - Give SPECIFIC remedies (mantras, days, actions) based on the problem context and according to particular user details
 3. After asking questions ONCE, STOP asking and give predictions
 4. STAY ON TOPIC - Career question = only career talk, Love question = only love talk
 
@@ -133,10 +133,21 @@ REMEMBER: Ask 1-2 simple questions in first response. After user answers ONCE, g
             'nahi mil raha', 'nahi ho raha', 'fail ho raha', 'galat ja raha'
         ])
         
+        # Detect if user is sharing GOOD NEWS or UPDATE (something already happened)
+        sharing_good_news = any(phrase in query_lower for phrase in [
+            'wapis aa', 'wapas aa', 'aa gayi', 'aa gaya', 'aa gaye', 'mil gaya', 'mil gayi',
+            'ho gaya', 'ho gayi', 'ho gaye', 'ban gaya', 'ban gayi', 'mila', 'mili',
+            'return', 'came back', 'got back', 'happened', 'success', 'kamyab'
+        ])
+        
         # Check if this is the FIRST mention of ANY topic (no previous context)
         is_first_mention = (asking_about_career or asking_about_love or asking_about_health or 
                            asking_about_money or asking_about_education or asking_about_decision or 
                            sharing_problem) and (not conversation_history or len(conversation_history) < 2)
+        
+        # Override first_mention if user is sharing good news/update
+        if sharing_good_news:
+            is_first_mention = False
         
         # Detect if asking about change/switch
         asking_about_change = any(phrase in query_lower for phrase in [
@@ -200,6 +211,12 @@ REMEMBER: Ask 1-2 simple questions in first response. After user answers ONCE, g
         max_tokens = 100  # Reduced for shorter responses
         response_guidance = ""
         
+        # GOOD NEWS / UPDATE - User is sharing something that already happened
+        if sharing_good_news:
+            max_tokens = 80
+            response_guidance = "User is sharing GOOD NEWS - something already happened (like 'gf wapis aa gayi'). Give 2-3 VERY SHORT messages: (1) Celebrate with them 'Bahut acchi khabar hai!' (2) Acknowledge the present reality (3) Give brief positive outlook. DON'T make future predictions about what already happened! Use |||"
+        
+        
         # Check if we already asked questions in ANY previous message
         already_asked_questions = False
         question_count = 0
@@ -219,7 +236,7 @@ REMEMBER: Ask 1-2 simple questions in first response. After user answers ONCE, g
         user_provided_details = len(user_query.split()) > 3
         
         # FIRST MENTION - Ask questions for ANY topic (but only if we haven't asked before!)
-        if is_first_mention and not already_asked_questions:
+        if is_first_mention and not already_asked_questions and not sharing_good_news:
             max_tokens = 80  # Reduced for shorter responses
             
             if asking_about_career:
@@ -346,6 +363,14 @@ REMEMBER: Ask 1-2 simple questions in first response. After user answers ONCE, g
             context_summary += f"\n⚠️ CURRENT TOPIC: {current_topic}\n"
             if already_mentioned:
                 context_summary += f"⚠️ ALREADY MENTIONED (DON'T REPEAT): {', '.join(already_mentioned)}\n"
+            
+            # Check if user is updating about something that was previously predicted
+            if sharing_good_news and conversation_history:
+                context_summary += "\n🎉 USER IS SHARING GOOD NEWS / UPDATE! 🎉\n"
+                context_summary += "🎉 Something they asked about ALREADY HAPPENED!\n"
+                context_summary += "🎉 DON'T make future predictions - acknowledge the PRESENT reality!\n"
+                context_summary += "🎉 Celebrate with them, then give brief positive outlook!\n"
+            
             context_summary += "\n🚨 CRITICAL - STAY ON TOPIC! 🚨\n"
             context_summary += "🚨 If user asked about CAREER, talk ONLY about career/job - NO relationships, NO health!\n"
             context_summary += "🚨 If user asked about LOVE, talk ONLY about love/relationship - NO career, NO money!\n"
